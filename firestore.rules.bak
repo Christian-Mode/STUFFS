@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Initial Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { 
+      return isSignedIn() && request.auth.token.email_verified == true; 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // 3. Validation Blueprints
+    function isValidTrend(data) {
+      return data.userId == request.auth.uid &&
+             data.topic is string;
+    }
+    function isValidConcept(data) {
+      return data.userId == request.auth.uid &&
+             data.title is string;
+    }
+    function isValidScript(data) {
+      return data.userId == request.auth.uid &&
+             data.hook is string;
+    }
+    function isValidPost(data) {
+      return data.userId == request.auth.uid;
+    }
+
+    // 4. Matches
+    match /test/{docId} {
+      allow get: if isSignedIn();
+    }
+
+    match /trends/{id} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidTrend(incoming());
+      allow update: if isVerified() && existing().userId == request.auth.uid && isValidTrend(incoming());
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
+    }
+
+    match /concepts/{id} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidConcept(incoming());
+      allow update: if isVerified() && existing().userId == request.auth.uid && 
+                   incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
+    }
+
+    match /scripts/{id} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidScript(incoming());
+      allow update: if isVerified() && existing().userId == request.auth.uid && isValidScript(incoming());
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
+    }
+
+    match /posts/{id} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidPost(incoming());
+      allow update: if isVerified() && existing().userId == request.auth.uid && 
+                   incoming().diff(existing()).affectedKeys().hasOnly(['performance']);
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
+    }
+  }
+}

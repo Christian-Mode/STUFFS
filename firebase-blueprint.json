@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "Trend": {
+      "title": "Trend",
+      "description": "A viral trend identified from digital platforms.",
+      "type": "object",
+      "properties": {
+        "topic": { "type": "string" },
+        "growth": { "type": "number" },
+        "source": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "audience": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["topic", "growth", "source", "keywords", "audience", "userId", "createdAt"]
+    },
+    "Concept": {
+      "title": "Concept",
+      "description": "A viral video concept generated from a trend.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "angle": { "type": "string" },
+        "targetAudience": { "type": "string" },
+        "userId": { "type": "string" },
+        "trendId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "scripted"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "angle", "targetAudience", "userId", "trendId", "status", "createdAt"]
+    },
+    "Script": {
+      "title": "Script",
+      "description": "A retention-optimized script for a video concept.",
+      "type": "object",
+      "properties": {
+        "hook": { "type": "string" },
+        "body": { "type": "string" },
+        "cta": { "type": "string" },
+        "visualCues": { "type": "string" },
+        "durationEstimate": { "type": "number" },
+        "userId": { "type": "string" },
+        "conceptId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hook", "body", "cta", "visualCues", "durationEstimate", "userId", "conceptId", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "A published video post with performance metrics.",
+      "type": "object",
+      "properties": {
+        "caption": { "type": "string" },
+        "hashtags": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" },
+        "productionId": { "type": "string" },
+        "conceptId": { "type": "string" },
+        "platform": { "type": "string", "enum": ["tiktok", "shorts", "reels"] },
+        "status": { "type": "string", "enum": ["published"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "publishedAt": { "type": "string", "format": "date-time" },
+        "performance": {
+          "type": "object",
+          "properties": {
+            "views": { "type": "number" },
+            "likes": { "type": "number" },
+            "shares": { "type": "number" }
+          }
+        }
+      },
+      "required": ["caption", "hashtags", "userId", "productionId", "conceptId", "platform", "status", "createdAt", "publishedAt"]
+    },
+    "Channel": {
+      "title": "Channel",
+      "description": "A linked social media account.",
+      "type": "object",
+      "properties": {
+        "platform": { "type": "string", "enum": ["tiktok", "instagram", "youtube"] },
+        "handle": { "type": "string" },
+        "userId": { "type": "string" },
+        "status": { "type": "string", "enum": ["connected", "disconnected"] },
+        "avatarUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["platform", "handle", "userId", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "trends": {
+      "schema": "Trend",
+      "description": "Stores identified viral trends."
+    },
+    "concepts": {
+      "schema": "Concept",
+      "description": "Stores generated video concepts."
+    },
+    "scripts": {
+      "schema": "Script",
+      "description": "Stores written video scripts."
+    },
+    "posts": {
+      "schema": "Post",
+      "description": "Stores published video posts and their analytics."
+    },
+    "channels": {
+      "schema": "Channel",
+      "description": "Stores linked social media accounts."
+    }
+  }
+}

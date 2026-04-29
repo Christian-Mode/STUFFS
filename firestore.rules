@@ -1,0 +1,150 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidTrend(data) {
+      return data.keys().hasAll(['topic', 'growth', 'source', 'keywords', 'audience', 'userId', 'createdAt']) &&
+             data.keys().size() == 7 &&
+             data.topic is string && data.topic.size() <= 500 &&
+             data.growth is number &&
+             data.source is string && data.source.size() <= 200 &&
+             data.keywords is list && data.keywords.size() <= 20 &&
+             data.audience is string && data.audience.size() <= 200 &&
+             data.userId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    function isValidConcept(data) {
+      return data.keys().hasAll(['title', 'angle', 'targetAudience', 'userId', 'trendId', 'status', 'createdAt']) &&
+             data.keys().size() == 7 &&
+             data.title is string && data.title.size() <= 500 &&
+             data.angle is string && data.angle.size() <= 2000 &&
+             data.targetAudience is string && data.targetAudience.size() <= 500 &&
+             data.userId == request.auth.uid &&
+             data.trendId is string && data.trendId.size() <= 500 &&
+             data.status in ['pending', 'scripted'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidScript(data) {
+      return data.keys().hasAll(['hook', 'body', 'cta', 'visualCues', 'durationEstimate', 'userId', 'conceptId', 'createdAt']) &&
+             data.keys().size() == 8 &&
+             data.hook is string && data.hook.size() <= 1000 &&
+             data.body is string && data.body.size() <= 10000 &&
+             data.cta is string && data.cta.size() <= 500 &&
+             data.visualCues is string && data.visualCues.size() <= 2000 &&
+             data.durationEstimate is number &&
+             data.userId == request.auth.uid &&
+             data.conceptId is string && data.conceptId.size() <= 128 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['caption', 'hashtags', 'userId', 'productionId', 'conceptId', 'platform', 'status', 'createdAt', 'publishedAt']) &&
+             (data.keys().size() == 9 || (data.keys().size() == 10 && data.keys().hasAll(['performance']))) &&
+             data.caption is string && data.caption.size() <= 5000 &&
+             data.hashtags is list && data.hashtags.size() <= 50 &&
+             data.userId == request.auth.uid &&
+             data.productionId is string && data.productionId.size() <= 128 &&
+             data.conceptId is string && data.conceptId.size() <= 128 &&
+             data.platform in ['tiktok', 'shorts', 'reels'] &&
+             data.status == 'published' &&
+             data.createdAt == request.time &&
+             data.publishedAt == request.time;
+    }
+
+    function isValidChannel(data) {
+      return data.keys().hasAll(['platform', 'handle', 'userId', 'status', 'createdAt']) &&
+             (data.keys().size() == 5 || (data.keys().size() == 6 && data.keys().hasAll(['avatarUrl']))) &&
+             data.platform in ['tiktok', 'instagram', 'youtube'] &&
+             data.handle is string && data.handle.size() <= 100 &&
+             data.userId == request.auth.uid &&
+             data.status in ['connected', 'disconnected'] &&
+             data.createdAt == request.time;
+    }
+
+    // --- Collections ---
+
+    match /trends/{trendId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId) && isValidId(trendId);
+      allow create: if isSignedIn() && isValidTrend(incoming());
+      // No updates for trends in this app
+    }
+
+    match /concepts/{conceptId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId) && isValidId(conceptId);
+      allow create: if isSignedIn() && isValidConcept(incoming());
+      allow update: if isOwner(existing().userId) && (
+        // Action: Mark as scripted
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
+        incoming().status == 'scripted' &&
+        existing().status == 'pending'
+      );
+    }
+
+    match /scripts/{scriptId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId) && isValidId(scriptId);
+      allow create: if isSignedIn() && isValidScript(incoming());
+      // No updates for scripts
+    }
+
+    match /posts/{postId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId) && isValidId(postId);
+      allow create: if isSignedIn() && isValidPost(incoming());
+      allow update: if isOwner(existing().userId) && (
+        // Action: Update performance
+        incoming().diff(existing()).affectedKeys().hasOnly(['performance']) &&
+        incoming().performance.views is number &&
+        incoming().performance.likes is number &&
+        incoming().performance.shares is number
+      );
+    }
+
+    match /channels/{channelId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId) && isValidId(channelId);
+      allow create: if isSignedIn() && isValidChannel(incoming());
+      allow delete: if isOwner(existing().userId);
+      allow update: if isOwner(existing().userId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'avatarUrl']) &&
+        incoming().status in ['connected', 'disconnected']
+      );
+    }
+    
+    // Connection test doc
+    match /test/connection {
+      allow read: if isSignedIn();
+    }
+  }
+}
